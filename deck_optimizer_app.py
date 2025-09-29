@@ -3,7 +3,7 @@ import itertools
 import pandas as pd
 
 # ------------------------
-# カードデータと特性設定（更新後）
+# カードデータと特性設定（最新版）
 # ------------------------
 cards = {
     "バーバリアン": ["クラン", "ファイター"],
@@ -34,33 +34,45 @@ cards = {
     "エレクトロウィザード": ["エレクトリック", "メイジ"]
 }
 
-# 通常モード用特性ルール
-traits_2_or_4 = {"クラン", "ゴブリン", "エース", "ファイター", "シューター", "アサシン", "ブラスター", "タンク", "アベンジャー"}
+traits_2_or_4_or_6 = {"クラン", "ゴブリン", "エース", "ファイター", "シューター", "アサシン", "ブラスター", "タンク", "アベンジャー", "エリート", "アンデット"}
 traits_2_only = {"ファイア", "エレクトリック", "メイジ"}
 
 # ------------------------
-# スコア計算関数
+# スコア計算関数（改良）
 # ------------------------
-def calculate_score(deck, mode="normal"):
+def calculate_score(deck, mode="normal", dummy_traits=None):
     trait_counts = {}
     for card in deck:
         for trait in cards[card]:
             trait_counts.setdefault(trait, set()).add(card)
 
+    # ダミーユニットがある場合（1ユニット分のカウントとして加算）
+    if dummy_traits:
+        for trait in dummy_traits:
+            trait_counts.setdefault(trait, set()).add("ダミーユニット")
+
     score = 0
     breakdown = []
     for trait, card_set in trait_counts.items():
         n = len(card_set)
-        if trait in traits_2_or_4 or (mode == "ultimate" and trait in {"エリート", "アンデット"}):
-            if n >= 6:
-                score += 6
-                breakdown.append((trait, 6, list(card_set)))
-            elif n >= 4:
-                score += 4
-                breakdown.append((trait, 4, list(card_set)))
-            elif n >= 2:
-                score += 2
-                breakdown.append((trait, 2, list(card_set)))
+        if trait in traits_2_or_4_or_6:
+            if mode == "ultimate" and trait in {"エリート", "アンデット"}:
+                if n >= 6:
+                    score += 6
+                    breakdown.append((trait, 6, list(card_set)))
+                elif n >= 4:
+                    score += 4
+                    breakdown.append((trait, 4, list(card_set)))
+                elif n >= 2:
+                    score += 2
+                    breakdown.append((trait, 2, list(card_set)))
+            else:
+                if n >= 4:
+                    score += 4
+                    breakdown.append((trait, 4, list(card_set)))
+                elif n >= 2:
+                    score += 2
+                    breakdown.append((trait, 2, list(card_set)))
         elif trait in traits_2_only:
             if n >= 2:
                 score += 2
@@ -74,15 +86,23 @@ st.title("カードデッキ最適化アプリ")
 
 mode = st.radio("ゲームモードを選択", ["通常モード", "究極の種族モード", "特性ダミーモード"])
 
+if mode == "特性ダミーモード":
+    all_traits = sorted({trait for traits in cards.values() for trait in traits})
+    dummy_trait_1 = st.selectbox("ダミーユニット特性①を選択", all_traits, index=0)
+    dummy_trait_2 = st.selectbox("ダミーユニット特性②を選択", [t for t in all_traits if t != dummy_trait_1], index=1)
+    dummy_traits = [dummy_trait_1, dummy_trait_2]
+    deck_size = 7
+elif mode == "究極の種族モード":
+    dummy_traits = ["エリート", "アンデット"]
+    deck_size = 7
+else:
+    dummy_traits = []
+    deck_size = 6
+
+st.write(f"このモードでは {deck_size} 枚のデッキを構成します。")
+
 all_card_names = list(cards.keys())
 selected_cards = st.multiselect("固定するカードを最大5枚まで選択:", all_card_names, max_selections=5)
-
-if mode == "通常モード":
-    deck_size = 6
-    st.write("\n\n通常モードでは6体構成でスコアを最大化します。")
-else:
-    deck_size = 7
-    st.write("\n\nこのモードではダミーユニットを含め7体構成でスコアを最大化します。")
 
 if len(selected_cards) > deck_size:
     st.error("選択カードがデッキサイズを超えています！")
@@ -98,12 +118,10 @@ if st.button("最適デッキを探索"):
     mode_flag = "normal"
     if mode == "究極の種族モード":
         mode_flag = "ultimate"
-    elif mode == "特性ダミーモード":
-        mode_flag = "normal"
 
     for combo in combinations:
         full_deck = list(selected_cards) + list(combo)
-        score, breakdown = calculate_score(full_deck, mode=mode_flag)
+        score, breakdown = calculate_score(full_deck, mode=mode_flag, dummy_traits=dummy_traits)
         results.append({"deck": full_deck, "score": score, "breakdown": breakdown})
 
     if results:
@@ -112,11 +130,14 @@ if st.button("最適デッキを探索"):
 
         st.success(f"最大スコア: {max_score}点 （{len(top_decks)}通り）")
 
-        for idx, r in enumerate(top_decks, 1):
-            st.markdown(f"### デッキ候補 {idx}")
-            st.write(", ".join(r["deck"]))
-            st.markdown("**スコア内訳:**")
-            for trait, score_part, members in r["breakdown"]:
-                st.write(f"- {trait}: {score_part}点（{', '.join(members)}）")
+        if len(top_decks) <= 10:
+            for idx, r in enumerate(top_decks, 1):
+                st.markdown(f"### デッキ候補 {idx}")
+                st.write(", ".join(r["deck"]))
+                st.markdown("**スコア内訳:**")
+                for trait, score_part, members in r["breakdown"]:
+                    st.write(f"- {trait}: {score_part}点（{', '.join(members)}）")
+        else:
+            st.info("表示件数が多いため、構成は省略します。")
     else:
         st.warning("該当するデッキが見つかりませんでした。")
