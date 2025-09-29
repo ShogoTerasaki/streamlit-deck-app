@@ -130,7 +130,7 @@ if st.button("最適デッキを探索"):
 
         st.success(f"最大スコア: {max_score}点 （{len(top_decks)}通り）")
 
-        if len(top_decks) <= 10:
+        if len(top_decks) <= 20:
             for idx, r in enumerate(top_decks, 1):
                 st.markdown(f"### デッキ候補 {idx}")
                 st.write(", ".join(r["deck"]))
