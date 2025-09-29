@@ -37,9 +37,6 @@ cards = {
 traits_2_or_4_or_6 = {"クラン", "ゴブリン", "エース", "ファイター", "シューター", "アサシン", "ブラスター", "タンク", "アベンジャー", "エリート", "アンデット"}
 traits_2_only = {"ファイア", "エレクトリック", "メイジ"}
 
-# ------------------------
-# スコア計算関数（改良）
-# ------------------------
 def calculate_score(deck, mode="normal", dummy_traits=None):
     trait_counts = {}
     for card in deck:
@@ -78,12 +75,12 @@ def calculate_score(deck, mode="normal", dummy_traits=None):
                 breakdown.append((trait, 2, list(card_set)))
     return score, breakdown
 
-# ------------------------
-# Streamlit アプリ本体
-# ------------------------
 st.title("カードデッキ最適化アプリ")
 
 mode = st.radio("ゲームモードを選択", ["通常モード", "究極の種族モード", "特性ダミーモード", "スコアお手本出力"])
+
+# 停止ボタン（チェック）を上部に設置
+stop_search = st.checkbox("🔴 検索を中止する")
 
 if mode == "スコアお手本出力":
     st.subheader("全モードでの最適デッキを探索中...")
@@ -98,28 +95,36 @@ if mode == "スコアお手本出力":
                 modes_to_run.append((f"特性ダミーモード: {trait1} + {trait2}", [trait1, trait2], 7, "normal"))
 
     for label, dummy_traits, deck_size, mode_flag in modes_to_run:
+        if stop_search:
+            st.warning("検索が中断されました。")
+            break
+
         all_card_names = list(cards.keys())
         combinations = list(itertools.combinations(all_card_names, deck_size - (1 if dummy_traits else 0)))
         results = []
         for combo in combinations:
+            if stop_search:
+                st.warning("検索が中断されました。")
+                break
+
             score, breakdown = calculate_score(combo, mode=mode_flag, dummy_traits=dummy_traits)
             results.append({"deck": combo, "score": score, "breakdown": breakdown})
 
-        max_score = max(r["score"] for r in results)
-        top_decks = [r for r in results if r["score"] == max_score]
+        if results:
+            max_score = max(r["score"] for r in results)
+            top_decks = [r for r in results if r["score"] == max_score]
 
-        st.markdown(f"## {label} — 最大スコア: {max_score}点 （{len(top_decks)}通り）")
-        if len(top_decks) <= 20:
-            for idx, r in enumerate(top_decks, 1):
-                st.markdown(f"### デッキ {idx}")
-                st.write(", ".join(r["deck"]))
-                for trait, score_part, members in r["breakdown"]:
-                    st.write(f"- {trait}: {score_part}点（{', '.join(members)}）")
-        else:
-            st.info("最適デッキが20通りを超えるため、構成は省略します。")
+            st.markdown(f"## {label} — 最大スコア: {max_score}点 （{len(top_decks)}通り）")
+            if len(top_decks) <= 20:
+                for idx, r in enumerate(top_decks, 1):
+                    st.markdown(f"### デッキ {idx}")
+                    st.write(", ".join(r["deck"]))
+                    for trait, score_part, members in r["breakdown"]:
+                        st.write(f"- {trait}: {score_part}点（{', '.join(members)}）")
+            else:
+                st.info("最適デッキが20通りを超えるため、構成は省略します。")
     st.stop()
 
-# 通常の最適化モード
 if mode == "特性ダミーモード":
     all_traits = sorted({trait for traits in cards.values() for trait in traits})
     dummy_trait_1 = st.selectbox("ダミーユニット特性①を選択", all_traits, index=0)
@@ -145,15 +150,17 @@ if len(selected_cards) > deck_size:
 if st.button("最適デッキを探索"):
     remaining_cards = [card for card in all_card_names if card not in selected_cards]
     comb_size = deck_size - len(selected_cards)
-
     combinations = list(itertools.combinations(remaining_cards, comb_size))
     results = []
-
     mode_flag = "normal"
     if mode == "究極の種族モード":
         mode_flag = "ultimate"
 
     for combo in combinations:
+        if stop_search:
+            st.warning("検索が中断されました。")
+            break
+
         full_deck = list(selected_cards) + list(combo)
         score, breakdown = calculate_score(full_deck, mode=mode_flag, dummy_traits=dummy_traits)
         results.append({"deck": full_deck, "score": score, "breakdown": breakdown})
