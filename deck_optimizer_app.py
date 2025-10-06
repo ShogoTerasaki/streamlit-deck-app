@@ -86,13 +86,13 @@ if mode == "スコアお手本出力":
     st.subheader("全モードでの最適デッキを探索中...")
     modes_to_run = [
         ("通常モード", [], 6, "normal"),
-        ("究極の種族モード", ["エリート", "アンデット"], 7, "ultimate"),
+        ("究極の種族モード", ["エリート", "アンデット"], 6, "ultimate"),
     ]
     all_traits = sorted({trait for traits in cards.values() for trait in traits})
     for trait1 in all_traits:
         for trait2 in all_traits:
             if trait1 != trait2:
-                modes_to_run.append((f"特性ダミーモード: {trait1} + {trait2}", [trait1, trait2], 7, "normal"))
+                modes_to_run.append((f"特性ダミーモード: {trait1} + {trait2}", [trait1, trait2], 6, "normal"))
 
     for label, dummy_traits, deck_size, mode_flag in modes_to_run:
         if stop_search:
@@ -100,7 +100,7 @@ if mode == "スコアお手本出力":
             break
 
         all_card_names = list(cards.keys())
-        combinations = list(itertools.combinations(all_card_names, deck_size - (1 if dummy_traits else 0)))
+        combinations = list(itertools.combinations(all_card_names, deck_size))
         results = []
         for combo in combinations:
             if stop_search:
@@ -130,15 +130,15 @@ if mode == "特性ダミーモード":
     dummy_trait_1 = st.selectbox("ダミーユニット特性①を選択", all_traits, index=0)
     dummy_trait_2 = st.selectbox("ダミーユニット特性②を選択", [t for t in all_traits if t != dummy_trait_1], index=1)
     dummy_traits = [dummy_trait_1, dummy_trait_2]
-    deck_size = 7
+    deck_size = 6
 elif mode == "究極の種族モード":
     dummy_traits = ["エリート", "アンデット"]
-    deck_size = 7
+    deck_size = 6
 else:
     dummy_traits = []
     deck_size = 6
 
-st.write(f"このモードでは {deck_size} 枚のデッキを構成します。")
+st.write(f"このモードでは {deck_size + (1 if dummy_traits else 0)} 枚のデッキを構成します（{deck_size}体＋ダミーユニット）。")
 
 all_card_names = list(cards.keys())
 selected_cards = st.multiselect("固定するカードを最大5枚まで選択:", all_card_names, max_selections=5)
