@@ -1,171 +1,128 @@
 import streamlit as st
 import itertools
-import pandas as pd
 
-# ------------------------
-# カードデータと特性設定（最新版）
-# ------------------------
+# =========================
+# カード定義（最新版）
+# =========================
+
 cards = {
-    "バーバリアン": ["クラン", "ファイター"],
-    "バルキリー": ["クラン", "ブルータリスト"],
-    "アーチャークイーン": ["クラン", "シューター"],
-    "プリンス": ["エリート", "ファイター"],
-    "プリンセス": ["エリート", "ブラスター"],
-    "ゴールドナイト": ["エリート", "アサシン"],
-    "マスケット銃士": ["エリート", "スーパースター"],
-    "吹き矢ゴブリン": ["ゴブリン", "シューター"],
+    "ナイト": ["エリート", "ディフェンダー"],
+    "アーチャー": ["クラン", "マークスマン"],
     "ゴブリン": ["ゴブリン", "アサシン"],
-    "槍ゴブリン": ["ゴブリン", "ブラスター"],
-    "ゴブリンマシン": ["ゴブリン", "ブルータリスト"],
-    "スケルトンドラゴン": ["アンデット", "シューター"],
-    "ロイヤルゴースト": ["アンデット", "アサシン"],
-    "スケルトンキング": ["アンデット", "ブルータリスト"],
-    "ネクロマンサー": ["アンデット", "スーパースター"],
-    "メガナイト": ["エース", "ファイター"],
-    "アサシンユーノ": ["エース", "アサシン"],
-    "執行人ファルチェ": ["エース", "ブラスター"],
-    "P.E.K.K.A": ["P.E.E.K.A", "ファイター"],
-    "ウィザード": ["クラン", "ブラスター"],
-    "エレクトロジャイアント": ["ジャイアント", "スーパースター"],
-    # 新規追加
-    "ミニP.E.K.K.A": ["P.E.E.K.A", "ブルータリスト"],
-    "ロイヤルジャイアント": ["ジャイアント", "シューター"],
-    "モンク": ["エース", "スーパースター"],
+    "バーバリアン": ["クラン", "ウォーリア"],
+    "スケルトンドラゴン": ["アンデット", "ドラゴン"],
+    "ウィザード": ["ファイア", "サボタージュ"],
+    "吹き矢ゴブリン": ["ゴブリン", "マークスマン"],
+    "ジャイアント": ["ジャイアント", "スーパースター"],
+    "マスケット銃士": ["エリート", "マークスマン"],
+    "バルキリー": ["クラン", "ディフェンダー"],
+    "ロイヤルジャイアント": ["ジャイアント", "マークスマン"],
+    "巨大スケルトン": ["アンデット", "ディフェンダー"],
+    "ダイナマイトゴブリン": ["ゴブリン", "ウォーリア"],
+    "P.E.E.K.A": ["エース", "スーパースター"],
+    "ネクロマンサー": ["アンデット", "サボタージュ"],
+    "ベビードラゴン": ["ファイア", "ドラゴン"],
+    "プリンス": ["エリート", "ウォーリア"],
+    "ゴブリンマシン": ["ゴブリン", "スーパースター"],
+    "スケルトンキング": ["アンデット", "ウォーリア"],
+    "ゴールドナイト": ["エリート", "アサシン"],
+    "アーチャークイーン": ["クラン", "スーパースター"],
+    "モンク": ["エース", "ディフェンダー"],
 }
 
-traits_2_or_4_or_6 = {
-    "クラン", "ゴブリン", "エース", "ファイター", "シューター",
-    "アサシン", "ブラスター", "ブルータリスト", "スーパースター",
-    "エリート", "アンデット"
-}
-traits_2_only = {"ジャイアント", "P.E.E.K.A"}
+# =========================
+# 特性発動ルール（修正版）
+# =========================
 
-def calculate_score(deck, dummy_traits=None):
-    trait_counts = {}
+# 2枚のみ発動（+2点）
+traits_2_only = {
+    "ドラゴン", "サボタージュ", "ファイア",
+    "エース", "ジャイアント", "アサシン"  # ←ここを追加（2枚のみ）
+}
+
+# 2枚 or 4枚発動（+2点 / +4点）
+traits_2_or_4 = {
+    "マークスマン", "ディフェンダー", "ウォーリア",
+    "クラン", "ゴブリン", "エリート", "アンデット", "スーパースター"
+    # ※ エース/ジャイアント/アサシン はここに入れない
+}
+
+# =========================
+# スコア計算
+# =========================
+
+def calculate_score(deck):
+    trait_members = {}
     for card in deck:
         for trait in cards[card]:
-            trait_counts.setdefault(trait, set()).add(card)
-    if dummy_traits:
-        for trait in dummy_traits:
-            trait_counts.setdefault(trait, set()).add("ダミーユニット")
+            trait_members.setdefault(trait, []).append(card)
 
     score = 0
     breakdown = []
-    for trait, card_set in trait_counts.items():
-        n = len(card_set)
-        if trait in traits_2_or_4_or_6:
-            if n >= 6:
-                score += 6
-                breakdown.append((trait, 6, list(card_set)))
-            elif n >= 4:
-                score += 4
-                breakdown.append((trait, 4, list(card_set)))
-            elif n >= 2:
-                score += 2
-                breakdown.append((trait, 2, list(card_set)))
-        elif trait in traits_2_only:
+
+    for trait, members in trait_members.items():
+        n = len(members)
+
+        if trait in traits_2_only:
             if n >= 2:
                 score += 2
-                breakdown.append((trait, 2, list(card_set)))
+                breakdown.append((trait, 2, members))
+
+        elif trait in traits_2_or_4:
+            if n >= 4:
+                score += 4
+                breakdown.append((trait, 4, members))
+            elif n >= 2:
+                score += 2
+                breakdown.append((trait, 2, members))
+
     return score, breakdown
 
-# ------------------------
-# Streamlit アプリ本体
-# ------------------------
-st.title("カードデッキ最適化アプリ")
 
-mode = st.radio("ゲームモードを選択", ["通常モード", "特性ダミーモード", "スコアお手本出力"])
+# =========================
+# Streamlit UI
+# =========================
 
-# 停止ボタン（チェック）
-stop_search = st.checkbox("🔴 検索を中止する")
+st.title("カードデッキ最適化アプリ（最新版）")
 
-# 特性ダミーモード設定
-if mode == "特性ダミーモード":
-    all_traits = sorted({trait for traits in cards.values() for trait in traits})
-    dummy_trait_1 = st.selectbox("ダミーユニット特性①", all_traits, index=0)
-    dummy_trait_2 = st.selectbox("ダミーユニット特性②", [t for t in all_traits if t != dummy_trait_1], index=1)
-    dummy_traits = [dummy_trait_1, dummy_trait_2]
-    deck_size = 6
-else:
-    dummy_traits = []
-    deck_size = 6
+deck_size = 6
 
-st.write(f"このモードでは {deck_size + (1 if dummy_traits else 0)} 枚のデッキを構成します。")
-
-# 固定カード選択
-all_card_names = list(cards.keys())
-selected_cards = st.multiselect("固定するカード（最大5枚）", all_card_names, max_selections=5)
+selected_cards = st.multiselect(
+    "固定するカード（最大5枚）",
+    list(cards.keys()),
+    max_selections=5
+)
 
 if len(selected_cards) > deck_size:
-    st.error("選択カードが多すぎます！")
+    st.error("固定カードが多すぎます")
     st.stop()
 
-# 最適化ボタン
 if st.button("最適デッキを探索"):
-    remaining_cards = [card for card in all_card_names if card not in selected_cards]
+    remaining = [c for c in cards.keys() if c not in selected_cards]
     comb_size = deck_size - len(selected_cards)
-    combinations = list(itertools.combinations(remaining_cards, comb_size))
+
+    all_combos = list(itertools.combinations(remaining, comb_size))
 
     results = []
-    for combo in combinations:
-        if stop_search:
-            st.warning("検索が中断されました。")
-            break
-        full_deck = list(selected_cards) + list(combo)
-        score, breakdown = calculate_score(full_deck, dummy_traits)
-        results.append({"deck": full_deck, "score": score, "breakdown": breakdown})
+    for combo in all_combos:
+        deck = selected_cards + list(combo)
+        score, breakdown = calculate_score(deck)
+        results.append((deck, score, breakdown))
 
-    if results:
-        max_score = max(r["score"] for r in results)
-        top_decks = [r for r in results if r["score"] == max_score]
-
-        st.success(f"最大スコア: {max_score}点（{len(top_decks)}通り）")
-        if len(top_decks) <= 10:
-            for idx, r in enumerate(top_decks, 1):
-                st.markdown(f"### デッキ {idx}")
-                st.write(", ".join(r["deck"]))
-                st.markdown("**スコア内訳:**")
-                for trait, pts, mems in r["breakdown"]:
-                    st.write(f"- {trait}: {pts}点（{', '.join(mems)}）")
-        else:
-            st.info("最適構成が多いため構成は省略します。")
+    if not results:
+        st.warning("構成が見つかりませんでした")
     else:
-        st.warning("条件に合う構成が見つかりませんでした。")
+        max_score = max(r[1] for r in results)
+        best = [r for r in results if r[1] == max_score]
 
-# お手本出力
-if mode == "スコアお手本出力":
-    st.subheader("全パターン最適スコアを探索中...")
-    all_traits = sorted({trait for traits in cards.values() for trait in traits})
-    mode_configs = [(f"通常モード", [], 6)]
+        st.success(f"最大スコア：{max_score}点（{len(best)}通り）")
 
-    for t1 in all_traits:
-        for t2 in all_traits:
-            if t1 != t2:
-                mode_configs.append((f"{t1}+{t2}", [t1, t2], 6))
-
-    for label, dummy_traits, deck_size in mode_configs:
-        if stop_search:
-            st.warning("中断されました。")
-            break
-
-        combinations = list(itertools.combinations(all_card_names, deck_size))
-        results = []
-        for combo in combinations:
-            if stop_search:
-                st.warning("中断されました。")
-                break
-            score, breakdown = calculate_score(combo, dummy_traits)
-            results.append({"deck": combo, "score": score, "breakdown": breakdown})
-
-        if results:
-            max_score = max(r["score"] for r in results)
-            top_decks = [r for r in results if r["score"] == max_score]
-
-            st.markdown(f"## {label} — 最大スコア: {max_score}点（{len(top_decks)}通り）")
-            if len(top_decks) <= 20:
-                for idx, r in enumerate(top_decks, 1):
-                    st.write(", ".join(r["deck"]))
-                    for trait, pts, mems in r["breakdown"]:
-                        st.write(f"- {trait}: {pts}点（{', '.join(mems)}）")
-            else:
-                st.info("構成が多いため省略します。")
+        if len(best) <= 10:
+            for i, (deck, score, breakdown) in enumerate(best, 1):
+                st.markdown(f"### デッキ{i}")
+                st.write(", ".join(deck))
+                st.markdown("**スコア内訳**")
+                for trait, pts, mem in breakdown:
+                    st.write(f"- {trait}：{pts}点（{', '.join(mem)}）")
+        else:
+            st.info("最適構成が多いため詳細は省略しました。")
